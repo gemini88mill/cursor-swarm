@@ -1,1 +1,78 @@
-{"$schema":"http://json-schema.org/draft-07/schema#","$id":"run.status.schema.json","title":"Run Status","description":"Single source of truth for run state. Records current step, timestamps, retry counts, and final outcome.","type":"object","required":["run-id","current-step","outcome","created-at","updated-at"],"additionalProperties":false,"properties":{"run-id":{"type":"string","description":"Unique identifier for the run"},"current-step":{"type":"string","description":"Name of the current or last-completed step (agent name)"},"outcome":{"type":"string","enum":["in-progress","completed","failed","canceled","needs-human","downgrade-scope","manual-intervention-required"],"description":"Final or current outcome of the run"},"review-fix-loop-count":{"type":"integer","minimum":0,"description":"Number of reviewer→implementor cycles (review-reject-fix). Increment when reviewer rejects and we hand back to implementor."},"created-at":{"type":"string","format":"date-time","description":"ISO 8601 timestamp when the run was created"},"updated-at":{"type":"string","format":"date-time","description":"ISO 8601 timestamp when the status was last updated"},"step-timestamps":{"type":"object","description":"Timestamps per step (e.g. planner.started, planner.completed, implementor.started)","additionalProperties":{"type":"string","format":"date-time"}},"retry-counts":{"type":"object","description":"Retry count per step when a step was retried (e.g. implementor: 2)","additionalProperties":{"type":"integer","minimum":0}},"failure-reason":{"type":"string","description":"Reason for failure or cancellation, if outcome is failed or canceled"},"branch":{"type":"string","description":"Branch name for this run (e.g. swarm/add-user-auth)"},"worktreePath":{"type":"string","description":"Absolute path to the worktree directory when branching enabled"},"prUrl":{"type":"string","description":"URL of the PR created when run completes successfully"},"plan-replan-count":{"type":"integer","minimum":0,"description":"Number of times the manager rejected the plan and requested replanning"}}}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "run.status.schema.json",
+  "title": "Run Status",
+  "description": "Single source of truth for run state. Records current step, timestamps, retry counts, and final outcome.",
+  "type": "object",
+  "required": ["run-id", "current-step", "outcome", "created-at", "updated-at"],
+  "additionalProperties": false,
+  "properties": {
+    "run-id": {
+      "type": "string",
+      "description": "Unique identifier for the run"
+    },
+    "current-step": {
+      "type": "string",
+      "description": "Name of the current or last-completed step (agent name)"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "in-progress",
+        "completed",
+        "failed",
+        "canceled",
+        "needs-human",
+        "downgrade-scope",
+        "manual-intervention-required"
+      ],
+      "description": "Final or current outcome of the run"
+    },
+    "review-fix-loop-count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of reviewer→implementor cycles (review-reject-fix). Increment when reviewer rejects and we hand back to implementor."
+    },
+    "created-at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the run was created"
+    },
+    "updated-at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the status was last updated"
+    },
+    "step-timestamps": {
+      "type": "object",
+      "description": "Timestamps per step (e.g. planner.started, planner.completed, implementor.started)",
+      "additionalProperties": { "type": "string", "format": "date-time" }
+    },
+    "retry-counts": {
+      "type": "object",
+      "description": "Retry count per step when a step was retried (e.g. implementor: 2)",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "failure-reason": {
+      "type": "string",
+      "description": "Reason for failure or cancellation, if outcome is failed or canceled"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Branch name for this run (e.g. swarm/add-user-auth)"
+    },
+    "worktreePath": {
+      "type": "string",
+      "description": "Absolute path to the worktree directory when branching enabled"
+    },
+    "prUrl": {
+      "type": "string",
+      "description": "URL of the PR created when run completes successfully"
+    },
+    "plan-replan-count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of times the manager rejected the plan and requested replanning"
+    }
+  }
+}

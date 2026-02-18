@@ -1,0 +1,82 @@
+{
+  "subagents": [
+    {
+      "name": "planner",
+      "description": "Planning specialist. Input: description string or MD file path. Outputs plan to .swarm/runs/{id}/plan.json and planner.result.json.",
+      "invoke": "Use the planner subagent with the given input",
+      "inputType": "user-task",
+      "first-step": true,
+      "schemaPath": "~/.cursor/agents/plan/planner.result.schema.json"
+    },
+    {
+      "name": "implementor",
+      "description": "Implements tasks from handoff.json. Input: path to handoff.json. Outputs implementor.result.json.",
+      "invoke": "Use the implementor subagent with the path to handoff.json",
+      "inputType": "handoff",
+      "schemaPath": "~/.cursor/agents/implementor/implementor.schema.json"
+    },
+    {
+      "name": "reviewer",
+      "description": "Reviews changes. Input: path to handoff.json. Verifies conformance to standards. Outputs reviewer.result.json.",
+      "invoke": "Use the reviewer subagent with the path to handoff.json",
+      "inputType": "handoff",
+      "schemaPath": "~/.cursor/agents/reviewer/reviewer.schema.json"
+    },
+    {
+      "name": "tester",
+      "description": "Runs the project's testing suite. Input: path to handoff.json. Outputs tester.result.json. Last stop.",
+      "invoke": "Use the tester subagent with the path to handoff.json",
+      "inputType": "handoff",
+      "schemaPath": "~/.cursor/agents/tester/tester.schema.json"
+    }
+  ],
+  "handoff-to": {
+    "planner": ["implementor"],
+    "implementor": ["reviewer"],
+    "reviewer": ["implementor", "tester"],
+    "tester": []
+  },
+  "handoff-notes": {
+    "planner": "Hand off to implementor unless the manager rejects the plan json.",
+    "implementor": "Hand off only to reviewer.",
+    "reviewer": "If approved: hand off to tester. If rejected: hand off to implementor with issues to fix.",
+    "tester": "Last stop. Hands off to no other agent."
+  },
+  "loop-control": {
+    "fromAgent": "reviewer",
+    "toAgent": "implementor",
+    "maxLoops": 3,
+    "escalation-action": "needs-human",
+    "countField": "review-fix-loop-count"
+  },
+  "plan-validation": {
+    "maxReplans": 1,
+    "escalation-action": "needs-human"
+  },
+  "parallelization": {
+    "enabled": true,
+    "rules": [
+      {
+        "maxConcurrent": 4,
+        "requireDisjointFiles": true,
+        "respectDependencies": true
+      }
+    ]
+  },
+  "behavior": {
+    "planning": {
+      "enabled": true,
+      "planResultField": "plan-path",
+      "planSchemaPath": "~/.cursor/agents/plan/plan.schema.json",
+      "replanCountField": "plan-replan-count"
+    },
+    "branching": {
+      "enabled": true
+    }
+  },
+  "escalation-actions": {
+    "needs-human": "Stop with outcome needs-human; report that human review is required.",
+    "downgrade-scope": "Stop and suggest reducing scope; leave partial work.",
+    "manual-intervention-required": "Stop; write manual-intervention-required.result.json with context for human to resume."
+  }
+}

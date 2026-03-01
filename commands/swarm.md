@@ -75,10 +75,20 @@ Proceed only after a human-authored, actionable `.swarm/standards.md` is present
 When `behavior.branching.enabled` is true in config, **you MUST run these commands yourself** using your terminal/command capability. Do NOT output them as instructions for the user. Do NOT delegate them.
 
 1. **Before the first handoff** (after the first-step agent completes): Execute `git worktree add <path> -b swarm/<friendly-name>` (see Worktree per run). Resolve the absolute path and store it in `run.status.json` and every handoff `context.worktreePath`.
-2. **When the run completes successfully** (final subagent in handoff-to passes): Execute `git -C <worktreePath> add -A`, `git -C <worktreePath> commit -m "..."` (if uncommitted changes), `git -C <worktreePath> push -u origin swarm/<friendly-name>`, then `gh pr create --base master --head swarm/<friendly-name> --title "..." --body "..."`. Record `prUrl` in `run.status.json`.
+2. **When the run completes successfully** (final subagent in handoff-to passes): Execute `git -C <worktreePath> add -A`, `git -C <worktreePath> commit -m "..."` (if uncommitted changes), `git -C <worktreePath> push -u <remote> swarm/<friendly-name>`. Then run the **PR creation command** from `.swarm/policies.json` (see PR creation below). Record `prUrl` in `run.status.json` when a PR is created.
 3. **After push succeeds**: Execute `git worktree remove <worktreePath>` to clean up the local worktree. The branch remains on remote for the PR.
 
 If you cannot execute terminal commands, escalate to the user immediately.
+
+### PR creation (policies-driven)
+
+PR creation is **project-specific**. Read `.swarm/policies.json` → `pr` before creating a PR.
+
+- **`pr.createCommand`** (optional): Custom command template. Use this when set. Variables: `{baseBranch}`, `{head}`, `{title}`, `{body}`, `{remote}`. Example: `gh pr create --base {baseBranch} --head {head} --title "{title}" --body "{body}"`.
+- **`pr.submitMethod`** (when `createCommand` is absent): Use the default for this method: `gh` (GitHub CLI), `glab` (GitLab CLI), `bb` (Bitbucket CLI), or `manual` (push only; do not create PR; escalate with instructions for the user to open a PR manually).
+- **`pr.baseBranch`**, **`pr.remote`**, **`pr.titleTemplate`**, **`pr.bodyTemplate`**: Used when building the command. `baseBranch` defaults from `pr.baseBranch` (e.g. `main`, `master`). Substitute into `createCommand` or use built-in defaults for `submitMethod`.
+
+If the PR command fails, escalate with manual instructions. If `submitMethod` is `manual`, skip PR creation and inform the user the branch was pushed.
 
 ## Git / workspace policy
 
@@ -142,7 +152,7 @@ When branching is enabled:
 
 1. **Create worktree**: After plan validation, run `git worktree add <path> -b swarm/<friendly-name>`. Use a sibling directory (e.g. `../<workspace-dirname>-swarm-<friendly-name>`) so the worktree is outside the main working tree. Store the absolute worktree path in `run.status.json` and `context.worktreePath` for all subsequent handoffs.
 2. **Subagent context**: Each handoff includes `context.worktreePath`. Subagents must perform all file edits, git operations, and command execution (lint, tests) from that directory.
-3. **PR on success**: When the final subagent (per `handoff-to`) passes and the run completes, commit any uncommitted changes in the worktree (subagents should commit as they go; if not, the manager commits before creating the PR). Push the branch: `git -C <worktreePath> push -u origin swarm/<friendly-name>`. Create the PR: `gh pr create --base <default-branch> --head swarm/<friendly-name> --title "<plan goal>" --body "<plan description>"`. Record `prUrl` in `run.status.json`. If `gh` is unavailable, escalate with manual PR instructions.
+3. **PR on success**: When the final subagent (per `handoff-to`) passes and the run completes, commit any uncommitted changes in the worktree (subagents should commit as they go; if not, the manager commits before creating the PR). Push the branch: `git -C <worktreePath> push -u <remote> swarm/<friendly-name>` (use `pr.remote` from policies). Create the PR using the command from `.swarm/policies.json` `pr` config (see PR creation above). Record `prUrl` in `run.status.json`. If PR creation fails or `submitMethod` is `manual`, escalate with manual instructions.
 4. **Cleanup**: After the push succeeds, run `git worktree remove <worktreePath>` to remove the local worktree. The branch remains on remote for the PR; the user reviews and merges via the PR.
 
 ### Loop control (config-driven)
@@ -209,7 +219,7 @@ The workflow is **fully defined by config**. Add, remove, or reorder subagents i
 13. **Parallel eligibility check**: If `parallelization.enabled` is true and applicable `parallelization.rules` allow safe batching, run eligible task batches in parallel per rule limits. If `parallelization.rules` is missing/empty or no rule applies, run serially.
 14. **Create handoff** for the next agent per `handoff.schema.json`. Include `context.allowedFiles` (from plan or previous result), `context.branch`, and `context.worktreePath` when branching is enabled. Write `handoff.<next-agent>.json` and `handoff.json`.
 15. **Invoke next agent** — Use the Task tool with `subagent_type` = the next agent's `name`, `prompt` = handoff path and instructions (see "Invoking subagents"). Set current agent to the next. Go to step 5.
-16. **Stop** when `handoff-to[current-agent]` is empty, or on escalation/failure. When the run completes successfully (last subagent in `handoff-to` completes): **You MUST execute** (1) commit any uncommitted changes in the worktree, (2) `git -C <worktreePath> push -u origin swarm/<friendly-name>`, (3) `gh pr create --base master --head swarm/<friendly-name> --title "<plan goal>" --body "<plan description>"`, (4) `git worktree remove <worktreePath>`. Record `prUrl` in `run.status.json`. If `gh` fails, escalate with manual instructions. Update `run.status.json` with final `outcome`.
+16. **Stop** when `handoff-to[current-agent]` is empty, or on escalation/failure. When the run completes successfully (last subagent in `handoff-to` completes): **You MUST execute** (1) commit any uncommitted changes in the worktree, (2) `git -C <worktreePath> push -u <remote> swarm/<friendly-name>` (use `pr.remote` from `.swarm/policies.json`), (3) create the PR using the command from `.swarm/policies.json` `pr` config (skip if `submitMethod` is `manual`), (4) `git worktree remove <worktreePath>`. Record `prUrl` in `run.status.json` when a PR is created. If PR creation fails, escalate with manual instructions. Update `run.status.json` with final `outcome`.
 
 ## Paths
 
@@ -217,6 +227,7 @@ All paths are workspace-relative unless noted.
 
 | Purpose                     | Path                                                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Project policies (PR, git)  | `.swarm/policies.json`                                                                                                        |
 | Config                      | `~/.cursor/agents/manager/config.json`                                                                                         |
 | Run folder                  | `.swarm/runs/{run-id}/`                                                                                                       |
 | Run status                  | `.swarm/runs/{run-id}/run.status.json`                                                                                        |

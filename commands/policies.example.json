@@ -59,8 +59,9 @@
     "requireLintTypecheckIfConfigured": true
   },
   "pr": {
-    "_submitMethodCallout": "Project-specific: Set submitMethod based on hosting. 'gh' = GitHub CLI (use if GitHub; prefers gh when available). 'glab' = GitLab CLI. 'manual' = push branch only, no PR creation.",
+    "_doc": "PR creation is project-specific. submitMethod: gh|glab|bb|manual. createCommand: optional template with {baseBranch},{head},{title},{body},{remote}. When set, overrides submitMethod defaults.",
     "submitMethod": "gh",
+    "createCommand": null,
     "createOnSuccess": true,
     "baseBranch": "main",
     "remote": "origin",

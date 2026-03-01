@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "standards": {
+    "required": true,
+    "path": ".swarm/standards.md",
+    "rejectIfMissingOrPlaceholder": true
+  },
+  "git": {
+    "requireCleanWorkingTree": true,
+    "allowUntrackedFiles": true,
+    "branching": {
+      "enabledByDefault": true,
+      "branchPrefix": "swarm/",
+      "worktreeNameTemplate": "{workspace}-swarm-{friendlyName}"
+    },
+    "commit": {
+      "requireConventionalCommits": false,
+      "signOff": false
+    }
+  },
+  "loopControl": {
+    "maxLoops": 3,
+    "maxReplans": 2
+  },
+  "fileAccess": {
+    "defaultPolicy": "deny",
+    "allow": [
+      "**/*"
+    ],
+    "deny": [
+      "**/.env",
+      "**/.env.*",
+      "**/*secret*",
+      "**/*credentials*",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.git/**",
+      "**/.swarm/runs/**"
+    ],
+    "requireAllowedFilesFromHandoff": true
+  },
+  "commands": {
+    "deny": [
+      "rm -rf",
+      "del /s",
+      "format",
+      "diskpart",
+      "sudo",
+      "curl *| sh",
+      "powershell *iex*",
+      "Invoke-Expression"
+    ],
+    "allowNetwork": false
+  },
+  "qualityGates": {
+    "requireReviewerApproval": true,
+    "requireTestsPassBeforePR": true,
+    "requireLintTypecheckIfConfigured": true
+  },
+  "pr": {
+    "_submitMethodCallout": "Project-specific: Set submitMethod based on hosting. 'gh' = GitHub CLI (use if GitHub; prefers gh when available). 'glab' = GitLab CLI. 'manual' = push branch only, no PR creation.",
+    "submitMethod": "gh",
+    "createOnSuccess": true,
+    "baseBranch": "main",
+    "remote": "origin",
+    "createDraft": false,
+    "titleTemplate": "[swarm] {goal}",
+    "bodyTemplate": "Goal: {goal}\n\nSummary:\n{summary}\n\nArtifacts:\n- Run folder: .swarm/runs/{runId}\n- Plan: .swarm/runs/{runId}/plan.json\n",
+    "labels": []
+  }
+}

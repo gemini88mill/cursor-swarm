@@ -39,14 +39,13 @@
     },
     "artifacts": {
       "type": "object",
-      "description": "Paths to key artifacts",
-      "additionalProperties": { "type": "string" },
+      "description": "Sole artifact for handoffs: context pack. Subagents read only this; do not read plan.json or standards.md.",
+      "required": ["contextPackPath"],
+      "additionalProperties": false,
       "properties": {
-        "planPath": { "type": "string" },
-        "standardsPath": { "type": "string" },
         "contextPackPath": {
           "type": "string",
-          "description": "Path to context.pack.md; subagents read only this plus handoff.json"
+          "description": "Path to context.pack.md; the only artifact subagents receive"
         }
       }
     },

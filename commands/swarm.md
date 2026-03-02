@@ -43,8 +43,8 @@ Use the **Task tool** (`mcp_task`) to spawn each subagent. Pass `subagent_type` 
 
 | inputType   | Prompt format |
 |-------------|---------------|
-| `user-task` | `Read context.pack.md at {contextPackPath}. Task: {task}. Run-id: {runId}. Write plan.json and planner.result.json to .swarm/runs/{runId}/.` (If task is an MD path, include `Task (from file): {path}`.) |
-| `handoff`   | `Read context.pack.md at {contextPackPath} and handoff.json at {handoffPath}. Execute your task. Write {agent}.result.json to .swarm/runs/{runId}/. Do not read plan.json or standards.md.` |
+| `user-task` | `Read context.pack.md at {contextPackPath}. Task: {task}. Run-id: {runId}. Write output to .swarm/runs/{runId}/ per your schema.` (If task is an MD path, include `Task (from file): {path}`.) |
+| `handoff`   | `Read context.pack.md at {contextPackPath} and handoff.json at {handoffPath}. Execute your task. Write output to .swarm/runs/{runId}/ per your schema. Do not read plan.json or standards.md.` |
 
 Use absolute paths when possible. The context pack contains worktreePath, allowedFiles, and other context—no need to repeat in the prompt.
 
@@ -122,12 +122,12 @@ If the PR command fails, escalate with manual instructions. If `submitMethod` is
 1. **Parse the task** – Understand what the user wants to accomplish
 2. **Select subagents** – Choose which agent(s) to use based on the task and config
 3. **Prepare input** – Create the input (description string or MD path) for each subagent
-4. **Delegate** – Use the Task tool (`mcp_task`) to spawn the subagent: `subagent_type` = agent `name` (e.g. `"planner"`, `"implementor"`), `prompt` = input built per the table above. Wait for completion, then read the result from the run folder.
+4. **Delegate** – Use the Task tool (`mcp_task`) to spawn the subagent: `subagent_type` = agent `name` from config, `prompt` = input built per the table above. Wait for completion, then read the result from the run folder.
 5. **Consume output** – Read the subagent's `<subagentname>.result.json` when it completes
 6. **Validate against schema** – Verify each result JSON conforms to the configured schema for that agent. **If validation fails, reject the step**; do not hand off to the next agent. Report the schema violation to the user.
 7. **Decide next step** – Use the validated result and `handoff-to` in config to determine the next agent (or reject and stop)
 8. **Loop control** – If `loop-control` exists and you are handing from `fromAgent` to `toAgent`: check `run.status.json` [`countField`] against `maxLoops`. If exceeded, escalate instead of handing off.
-9. **Update run.status.json** – Keep current: `current-step`, `updated-at`, `step-timestamps`, `retry-counts`, and the loop count field (increment when handing along the loop edge). Set `outcome` when run ends. When the Task tool returns token usage for a subagent, record it in `step-tokens` (e.g. `step-tokens: { "planner": 1234, "implementor": 5678 }`).
+9. **Update run.status.json** – Keep current: `current-step`, `updated-at`, `step-timestamps`, `retry-counts`, and the loop count field (increment when handing along the loop edge). Set `outcome` when run ends. When the Task tool returns token usage for a subagent, record it in `step-tokens` (keyed by agent name from config).
 10. **Create handoff** – Write `handoff.<next-agent>.json` and update `handoff.json` for the next agent per `handoff-to`; derive handoff content from the current result and config.
 
 ## Output Conventions
@@ -151,7 +151,7 @@ Expected files in each run folder:
 
 When creating a handoff for an agent: write `handoff.<agent>.json` (step-labelled copy) and update `handoff.json` (current). Set `artifacts.contextPackPath` to the context pack path. Pass both context pack and handoff paths when invoking the next agent.
 
-**run.status.json** – Create when a run starts; update on every step transition. Set `outcome` to `in-progress` while running, and to `completed`, `failed`, `canceled`, or an escalation outcome (`needs-human`, `downgrade-scope`, `manual-intervention-required`) when done. Record `step-timestamps`, `retry-counts`, loop-control counter fields (per config), plan replan counter fields (per behavior config), `branch`, `worktreePath` (when branching enabled), and `prUrl` (when a PR is created). Record **`step-tokens`** – token usage per subagent (e.g. `{ "planner": 1234, "implementor": 5678, "reviewer": 890, "tester": 456 }`) – when the Task tool returns usage data. Schema: `.cursor/agents/manager/run.status.schema.json`.
+**run.status.json** – Create when a run starts; update on every step transition. Set `outcome` to `in-progress` while running, and to `completed`, `failed`, `canceled`, or an escalation outcome (`needs-human`, `downgrade-scope`, `manual-intervention-required`) when done. Record `step-timestamps`, `retry-counts`, loop-control counter fields (per config), plan replan counter fields (per behavior config), `branch`, `worktreePath` (when branching enabled), and `prUrl` (when a PR is created). Record **`step-tokens`** – token usage per subagent (keyed by agent name from config) – when the Task tool returns usage data. Schema: `.cursor/agents/manager/run.status.schema.json`.
 
 ### Plan validation (behavior-driven)
 
@@ -217,7 +217,7 @@ Each handoff file (`handoff.json` or `handoff.<agent>.json`) conforms to `.curso
 | `step`          | Current step number                                                                                                                                                                                                            |
 | `iteration`     | Iteration (1 for first pass; 2+ for retries)                                                                                                                                                                                   |
 | `input`         | Input to pass to the receiving agent                                                                                                                                                                                           |
-| `artifacts`     | `planPath`, `standardsPath`, `contextPackPath` (path to context.pack.md; subagents read only this plus handoff)                                                                                                                                   |
+| `artifacts`     | `contextPackPath` only (path to context.pack.md; sole artifact—subagents read only this, not plan.json or standards.md)                                                                                                                             |
 | `context`       | `allowedFiles` (required guard rail—only these files may be touched), `runId`, `planId`, `stepSummary`, `filesChanged`, `commitSha`, `branch`, `worktreePath` (absolute path to the worktree directory when branching enabled) |
 
 ## Workflow (config-driven)
@@ -228,10 +228,10 @@ The workflow is **fully defined by config**. Add, remove, or reorder subagents i
 2. Ensure `.swarm/` and `.swarm/runs/` exist; create if missing. For first-step execution: generate `run-id` (GUID), create `.swarm/runs/{run-id}/`, create `run.status.json` (outcome: `in-progress`), and **generate preliminary `context.pack.md`** (Goal from task, Non-negotiables from standards+policies, Allowed/Forbidden, System map, Notes—no Plan yet).
 3. Read `config.json`. Find the agent with `first-step: true` → that is the **current agent**.
 4. Parse the user's task.
-5. **Invoke current agent** — Use the Task tool with `subagent_type` = the agent's `name` from config (e.g. `"planner"`). Build the `prompt` per `inputType` (see "Invoking subagents"). The Task tool blocks until the subagent completes.
+5. **Invoke current agent** — Use the Task tool with `subagent_type` = the agent's `name` from config. Build the `prompt` per `inputType` (see "Invoking subagents"). The Task tool blocks until the subagent completes.
    - If `inputType` is `user-task`: pass the task description (or path to MD file).
    - If `inputType` is `handoff`: pass the path to `handoff.json` (create the handoff first from previous result).
-6. The Task tool returns when the subagent completes. Read `<current-agent>.result.json` from `.swarm/runs/{run-id}/`. For first-step execution: create `.swarm/runs/{run-id}/` first (generate `run-id` as GUID), and include run-id in the planner prompt (e.g. "Task: … Write output to .swarm/runs/{run-id}/. Use run-id as plan id.").
+6. The Task tool returns when the subagent completes. Read the current agent's result file from `.swarm/runs/{run-id}/` (filename per agent schema). For first-step execution: create `.swarm/runs/{run-id}/` first (generate `run-id` as GUID), and include run-id in the first-step agent's prompt.
 7. **Validate** the result against the agent's `schemaPath`. If invalid, set `run.status.json` outcome to `failed`, report to user, and stop.
 8. **Standards gate + plan validation** (when planning behavior is enabled): Before validating the plan, confirm `.swarm/standards.md` is present and actionable (not placeholder-only). If missing or insufficient, escalate to human and stop. Otherwise read `plan.json` (path from result field configured by `behavior.planning.planResultField`, default `plan-path`) and `.swarm/standards.md`. Validate `plan.json` against `behavior.planning.planSchemaPath`. Check for missing tasks, too broad scope, or standards violations. If rejected: either invoke the first-step agent again with feedback (and increment configured replan counter) or escalate per `plan-validation` in config. If escalating, set outcome and stop. **When plan is accepted**: regenerate `context.pack.md` with full Plan (condensed steps), Allowed files from plan, Acceptance checks.
 9. **Update run.status.json**: `current-step`, `updated-at`, `step-timestamps`, and `step-tokens` (when Task tool returns usage).
@@ -261,11 +261,11 @@ All paths are workspace-relative unless noted.
 | Result schemas              | Subagent results: `.cursor/agents/{agent}/{agent}.schema.json`; plan schema: configured in `behavior.planning.planSchemaPath` |
 | Manager schemas             | `.cursor/agents/manager/run.status.schema.json`, `.cursor/agents/manager/handoff.schema.json`                                 |
 
-**Handoff artifacts**: Set `artifacts.planPath`, `artifacts.standardsPath` (for manager reference), and `artifacts.contextPackPath` = `.swarm/runs/{run-id}/context.pack.md` (for subagent input).
+**Handoff artifacts**: Set `artifacts.contextPackPath` = `.swarm/runs/{run-id}/context.pack.md` only. No planPath or standardsPath—subagents must not read them during handoffs.
 
 ### Context pack generation
 
-1. **Preliminary (for planner)**: When creating the run folder, generate `context.pack.md` with: Fingerprint, Goal (from task), Non-negotiables (from standards + policies), Allowed/Forbidden (from policies), System map (project-specific; if absent use placeholder), Current state, Notes. No Plan section yet.
+1. **Preliminary (for first-step agent)**: When creating the run folder, generate `context.pack.md` with: Fingerprint, Goal (from task), Non-negotiables (from standards + policies), Allowed/Forbidden (from policies), System map (project-specific; if absent use placeholder), Current state, Notes. No Plan section yet.
 2. **Full (for handoff agents)**: After plan validation passes, **regenerate** `context.pack.md` with the complete Plan (condensed steps from plan.json lanes), Allowed files (from plan touch-map), Acceptance checks (from plan). Replace the preliminary file.
 3. **Token limit**: Keep the file ≤3000 tokens. Condense verbose standards into bullet points. One sentence per system map item.
 

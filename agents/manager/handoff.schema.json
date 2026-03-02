@@ -43,7 +43,11 @@
       "additionalProperties": { "type": "string" },
       "properties": {
         "planPath": { "type": "string" },
-        "standardsPath": { "type": "string" }
+        "standardsPath": { "type": "string" },
+        "contextPackPath": {
+          "type": "string",
+          "description": "Path to context.pack.md; subagents read only this plus handoff.json"
+        }
       }
     },
     "context": {

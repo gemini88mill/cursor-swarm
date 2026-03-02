@@ -73,6 +73,14 @@
       "type": "integer",
       "minimum": 0,
       "description": "Number of times the manager rejected the plan and requested replanning"
+    },
+    "step-tokens": {
+      "type": "object",
+      "description": "Token usage per subagent (agent name to token count). Populated when Task tool returns usage.",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
     }
   }
 }

@@ -34,8 +34,8 @@
       "description": "Exit code of the test command"
     },
     "output": {
-      "type": "string",
-      "description": "Captured stdout from the test run (abbreviated if long)"
+      "type": ["string", "null"],
+      "description": "Captured stdout from the test run. Only include when tests fail; use null or omit when status is 'passed' to reduce token usage."
     },
     "failures": {
       "type": "array",

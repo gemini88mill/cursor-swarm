@@ -23,7 +23,7 @@ Read the context pack's **Non-negotiables** and **Key commands** sections. They 
 
 1. **Read context.pack.md and handoff.json** – Parse Non-negotiables, Key commands, and context
 2. **Run the test suite** – Execute the project's test commands using the standards-compliant toolchain (e.g. `bun run test`, `pytest`)
-3. **Capture results** – Record pass/fail, output, and any failures
+3. **Capture results** – Record pass/fail, and any failures (only include raw output when tests fail)
 4. **Output result** – Write `tester.result.json` conforming to the schema
 
 ## Output
@@ -40,6 +40,7 @@ This is your only output. You do not hand off to any other agent; you are the la
 4. Run the test suite from `context.worktreePath` when present (e.g. `cd <worktreePath> && <test-command>`), otherwise from the current directory
 5. Capture exit code, stdout, stderr, and summary of results
 6. Write `tester.result.json` to the run folder
+   - **Output field**: Include `output` only when tests fail. When status is `passed`, set `output` to `null` or omit it. This reduces token usage when all tests pass.
 
 ## Paths
 
